@@ -205,6 +205,8 @@ export const cloneDashboard = (
 
 type FullAction = Action | CellAction | ViewAction
 
+const pendingResults = {}
+
 export const getDashboards = () => async (
   dispatch: Dispatch<FullAction>,
   getState: GetState
@@ -246,7 +248,7 @@ export const getDashboards = () => async (
         }
       })
       .forEach(entity => {
-        setTimeout(() => {
+        const timeoutResults = setTimeout(() => {
           const viewsData = viewsFromCells(entity.cells, entity.id)
 
           const normViews = normalize<View, ViewEntities, string[]>(
@@ -255,16 +257,15 @@ export const getDashboards = () => async (
           )
 
           dispatch(setViews(RemoteDataState.Done, normViews))
-        }, 0)
 
-        setTimeout(() => {
           const normCells = normalize<Dashboard, DashboardEntities, string[]>(
             entity.cells,
             arrayOfCells
           )
-
           dispatch(setCells(entity.id, RemoteDataState.Done, normCells))
         }, 0)
+
+        pendingResults[entity.id] = timeoutResults
       })
   } catch (error) {
     dispatch(creators.setDashboards(RemoteDataState.Error))
@@ -329,6 +330,7 @@ export const getDashboard = (
   controller?: AbortController
 ) => async (dispatch, getState: GetState): Promise<void> => {
   try {
+    clearTimeout(pendingResults[dashboardID])
     dispatch(creators.setDashboard(dashboardID, RemoteDataState.Loading))
 
     // Fetch the dashboard, views, and all variables a user has access to
